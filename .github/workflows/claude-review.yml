@@ -1,0 +1,38 @@
+name: Claude Review Agent
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          prompt: |
+            REPO: ${{ github.repository }}
+            PR NUMBER: ${{ github.event.pull_request.number }}
+
+            Read CLAUDE.md first. Review this PR's diff against it —
+            especially the .polsia/ownership.json rules (never touch
+            framework_owned files; shared files only inside declared slot
+            markers) and the "before opening a PR" checklist.
+
+            Flag: ownership violations, missing tests for new API routes,
+            unvalidated request/response shapes (should use a zod contract
+            from src/lib/contracts), and any obvious bugs.
+
+            Leave a single top-level PR comment summarizing what you found.
+            If nothing is wrong, say so briefly — don't invent issues.
+          claude_args: |
+            --allowedTools "Read,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*)"
