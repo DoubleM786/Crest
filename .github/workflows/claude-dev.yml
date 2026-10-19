@@ -1,0 +1,52 @@
+name: Claude Dev Agent
+
+# Trigger: add the "agent:ready" label to a GitHub Issue.
+# Requires the ANTHROPIC_API_KEY secret set in repo Settings > Secrets.
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  dev:
+    if: github.event.label.name == 'agent:ready'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: anthropics/claude-code-action@v1
+        with:
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: |
+            Read CLAUDE.md first and follow it exactly, especially the
+            ownership rules.
+
+            Implement GitHub issue #${{ github.event.issue.number }}:
+            "${{ github.event.issue.title }}"
+
+            ${{ github.event.issue.body }}
+
+            Steps:
+
+            1. Create a new branch.
+            2. Implement the change.
+            3. Run typecheck, lint, and tests. Fix failures and retry, up to
+               3 attempts.
+            4. Commit, push the branch, and open a pull request with
+               "Closes #${{ github.event.issue.number }}" in the description.
+            5. If checks are still failing after 3 attempts, open the PR as
+               a draft and explain what's failing instead of leaving it
+               silently broken.
+
+            Never edit a framework_owned file. Never edit a shared file
+            outside its declared slot markers.
+          claude_args: |
+            --allowedTools "Read,Write,Edit,Bash(git:*),Bash(gh issue:*),Bash(gh pr:*),Bash(npm:*)"
